@@ -402,22 +402,4 @@ public class Logic : MonoBehaviour,
         _btnBuySDK.interactable = false;
         _btnSubsSDK.interactable = false;
     }
-
-    // Add this method to handle the PurchasesResult
-    private void HandlePurchasesResult(PurchasesResult purchasesResult)
-    {
-        if (purchasesResult.BillingResult.ResponseCode == 0) // Assuming 0 indicates success
-        {
-            foreach (var purchase in purchasesResult.Purchases)
-            {
-                Debug.Log($"Purchase found: {purchase.Products[0]}");
-                StartCoroutine(ValidatePurchase(purchase));
-            }
-        }
-        else
-        {
-            Debug.LogError($"Failed to query purchases. Response code: {purchasesResult.BillingResult.ResponseCode}");
-        }
-    }
-
 }
