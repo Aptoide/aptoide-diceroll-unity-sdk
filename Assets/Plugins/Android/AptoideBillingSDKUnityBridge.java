@@ -28,7 +28,7 @@ public class AptoideBillingSDKUnityBridge {
                     Log.d(TAG, "Billing setup finished.");
                     UnityPlayer.UnitySendMessage(unityClassName,
                             "BillingSetupFinishedCallback",
-                            "" + billingResult);
+                            "" + getBillingResultJsonObject(billingResult).toString());
                 }
 
                 @Override
@@ -62,7 +62,7 @@ public class AptoideBillingSDKUnityBridge {
             (billingResult, productDetailsResult) -> {
                 Log.d(TAG, "Product details received: " + billingResult.getResponseCode()
                         + " debugMessage: " + billingResult.getDebugMessage());
-                if (!details.isEmpty()) {
+                if (!productDetailsResult.getProductDetailsList().isEmpty()) {
                     for (ProductDetails productDetail :
                             productDetailsResult.getProductDetailsList()) {
                         fetchedProductDetailsMap.put(productDetail.getProductId(), productDetail);
@@ -123,9 +123,10 @@ public class AptoideBillingSDKUnityBridge {
                 productDetailsResponseListener);
     }
 
-    public static int launchBillingFlow(String productId, String productType,
+    public static String launchBillingFlow(String productId, String productType,
             String developerPayload, String obfuscatedAccountId, boolean freeTrial) {
         ProductDetails productDetails = getProductDetailsFromProductId(productId);
+        BillingResult billingResult;
         if (productDetails != null) {
             ArrayList<BillingFlowParams.ProductDetailsParams> productDetailsParamsList =
                     new ArrayList<>();
@@ -141,12 +142,17 @@ public class AptoideBillingSDKUnityBridge {
                             .setObfuscatedAccountId(obfuscatedAccountId)
                             .setDeveloperPayload(developerPayload)
                             .build();
-            return billingClient.launchBillingFlow(UnityPlayer.currentActivity, billingFlowParams);
+            billingResult = billingClient.launchBillingFlow(UnityPlayer.currentActivity,
+                    billingFlowParams);
         } else {
             BillingFlowParams billingFlowParams = new BillingFlowParams(productId, productType,
                     developerPayload, obfuscatedAccountId, freeTrial);
-            return billingClient.launchBillingFlow(UnityPlayer.currentActivity, billingFlowParams);
+            billingResult = billingClient.launchBillingFlow(UnityPlayer.currentActivity,
+                    billingFlowParams);
         }
+        Log.d(TAG, "Launch of Billing Flow result: " + billingResult.getResponseCode()
+                + " debugMessage: " + billingResult.getDebugMessage());
+        return getBillingResultJsonObject(billingResult).toString();
     }
 
     public static void consumeAsync(String purchaseToken) {
@@ -239,17 +245,15 @@ public class AptoideBillingSDKUnityBridge {
     }
 
     private static String productDetailsResultToJson(BillingResult billingResult,
-            QueryProductDetailsResult queryProductDetailsResult) {
+            QueryProductDetailsResult productDetailsResult) {
         JSONObject jsonObject = new JSONObject();
         try {
             JSONObject billingResultJsonObject = getBillingResultJsonObject(billingResult);
             jsonObject.put("BillingResult", billingResultJsonObject);
 
-            JSONObject queryProductDetailsResultJsonObject = new JSONObject();
+            JSONObject productDetailsResultJsonObject = new JSONObject();
             JSONArray productDetailsJsonArray = new JSONArray();
-            for (int i = 0; i < queryProductDetailsResult.getProductDetailsList().size(); i++) {
-                ProductDetails productDetails =
-                        queryProductDetailsResult.getProductDetailsList().get(i);
+            for (ProductDetails productDetails : productDetailsResult.getProductDetailsList()) {
                 JSONObject productDetailsJsonObject = new JSONObject();
 
                 productDetailsJsonObject.put("ProductId", productDetails.getProductId());
@@ -278,14 +282,14 @@ public class AptoideBillingSDKUnityBridge {
 
                 productDetailsJsonArray.put(productDetailsJsonObject);
             }
-            queryProductDetailsResultJsonObject.put("ProductDetailsList", productDetailsJsonArray);
+            productDetailsResultJsonObject.put("ProductDetailsList", productDetailsJsonArray);
 
             JSONArray unfetchedProductsJsonArray = getUnfetchedProductsJsonArray(
-                    queryProductDetailsResult);
-            queryProductDetailsResultJsonObject.put("UnfetchedProductList",
+                    productDetailsResult);
+            productDetailsResultJsonObject.put("UnfetchedProductList",
                     unfetchedProductsJsonArray);
 
-            jsonObject.put("QueryProductDetailsResult", queryProductDetailsResultJsonObject);
+            jsonObject.put("ProductDetailsResult", productDetailsResultJsonObject);
         } catch (JSONException exception) {
             Log.e(TAG, "productDetailsResultToJson: ", exception);
             return new JSONObject().toString();
@@ -424,7 +428,10 @@ public class AptoideBillingSDKUnityBridge {
         JSONObject billingResultJsonObject = new JSONObject();
         try {
             billingResultJsonObject.put("ResponseCode", billingResult.getResponseCode());
-            billingResultJsonObject.put("DebugMessage", billingResult.getDebugMessage());
+            if (billingResult.getDebugMessage() != null && !billingResult.getDebugMessage()
+                    .isEmpty() && !billingResult.getDebugMessage().equals("null")) {
+                billingResultJsonObject.put("DebugMessage", billingResult.getDebugMessage());
+            }
             return billingResultJsonObject;
         } catch (JSONException exception) {
             Log.e(TAG, "getBillingResultJsonObject: ", exception);
