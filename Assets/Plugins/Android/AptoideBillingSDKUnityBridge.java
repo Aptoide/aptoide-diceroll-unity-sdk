@@ -211,13 +211,17 @@ public class AptoideBillingSDKUnityBridge {
                 JSONObject purchaseJsonObject = new JSONObject();
 
                 if (purchase.getAccountIdentifiers() != null) {
-                    JSONObject accountIdentifiersJsonObject = new JSONObject();
-                    accountIdentifiersJsonObject.put("ObfuscatedAccountId",
-                            purchase.getAccountIdentifiers().getObfuscatedAccountId());
-                    purchaseJsonObject.put("AccountIdentifiers", accountIdentifiersJsonObject);
+                    if (purchase.getAccountIdentifiers().getObfuscatedAccountId() != null) {
+                        JSONObject accountIdentifiersJsonObject = new JSONObject();
+                        accountIdentifiersJsonObject.put("ObfuscatedAccountId",
+                                purchase.getAccountIdentifiers().getObfuscatedAccountId());
+                        purchaseJsonObject.put("AccountIdentifiers", accountIdentifiersJsonObject);
+                    }
                 }
 
-                purchaseJsonObject.put("DeveloperPayload", purchase.getDeveloperPayload());
+                if (purchase.getDeveloperPayload() != null) {
+                    purchaseJsonObject.put("DeveloperPayload", purchase.getDeveloperPayload());
+                }
                 purchaseJsonObject.put("OrderId", purchase.getOrderId());
                 purchaseJsonObject.put("OriginalJson", purchase.getOriginalJson());
                 purchaseJsonObject.put("PackageName", purchase.getPackageName());
@@ -411,8 +415,12 @@ public class AptoideBillingSDKUnityBridge {
             JSONObject billingResultJsonObject = getBillingResultJsonObject(
                     referralDeeplink.getBillingResult());
             jsonObject.put("BillingResult", billingResultJsonObject);
-            jsonObject.put("StoreDeeplink", referralDeeplink.getStoreDeeplink());
-            jsonObject.put("FallbackDeeplink", referralDeeplink.getFallbackDeeplink());
+            if (referralDeeplink.getStoreDeeplink() != null) {
+                jsonObject.put("StoreDeeplink", referralDeeplink.getStoreDeeplink());
+            }
+            if (referralDeeplink.getFallbackDeeplink() != null) {
+                jsonObject.put("FallbackDeeplink", referralDeeplink.getFallbackDeeplink());
+            }
         } catch (JSONException exception) {
             Log.e(TAG, "referralDeeplinkResultToJson: ", exception);
             return new JSONObject().toString();

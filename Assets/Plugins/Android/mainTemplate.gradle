@@ -2,18 +2,18 @@ apply plugin: 'com.android.library'
 apply from: '../shared/keepUnitySymbols.gradle'
 **APPLY_PLUGINS**
 
-dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation("com.aptoide:android-aptoide-billing:1.1.0")
-    implementation("org.json:json:20210307")
-**DEPS**}
+        dependencies {
+            implementation fileTree(dir: 'libs', include: ['*.jar'])
+            implementation("com.aptoide:android-aptoide-billing:1.2.0")
+            implementation("org.json:json:20210307")
+            **DEPS**}
 
 android {
     namespace "com.unity3d.player"
     ndkPath "**NDKPATH**"
     ndkVersion "**NDKVERSION**"
     compileSdk **APIVERSION**
-    buildToolsVersion '**BUILDTOOLS**'
+            buildToolsVersion '**BUILDTOOLS**'
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -21,15 +21,15 @@ android {
     }
 
     defaultConfig {
-**DEFAULT_CONFIG_SETUP**
-        minSdk **MINSDK**
-        targetSdk **TARGETSDK**
-        ndk {
-            debugSymbolLevel **DEBUGSYMBOLLEVEL**
-            abiFilters **ABIFILTERS**
-        }
+        **DEFAULT_CONFIG_SETUP**
+                minSdk **MINSDK**
+                targetSdk **TARGETSDK**
+                ndk {
+                    debugSymbolLevel **DEBUGSYMBOLLEVEL**
+                            abiFilters **ABIFILTERS**
+                }
         versionCode **VERSIONCODE**
-        versionName '**VERSIONNAME**'
+                versionName '**VERSIONNAME**'
     }
 
     lint {
