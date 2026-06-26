@@ -98,8 +98,10 @@ public class Logic : MonoBehaviour,
     private readonly Queue<string> _purchaseQueryQueue = new Queue<string>();
     private bool _purchaseQueryInFlight;
 
-    // ---- Aptoide settings block (built at runtime) ----
-    private GameObject _aptoideBlock;
+    // ---- Settings menu / Aptoide block (built at runtime) ----
+    private GameObject _settingsPanel;   // modal overlay opened by the existing gear button
+    private Button _btnSettings;         // existing "btnSettings" gear button in the scene
+    private GameObject _aptoideBlock;     // account section (may be hidden when sign-in unsupported)
     private Button _btnAptoideAccount;
     private TMP_Text _txtAptoideAccount;
     private Button _btnBuyLegendary;
@@ -160,9 +162,10 @@ public class Logic : MonoBehaviour,
             "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzIR0OxCJDzaF2PvcymkPvG9PQTCVkGPxG5eLt5ZcIBftWKl6nFmgItAyYm2ixOrpNUOHjtuTOXuaMMABV91Y6CitQujsr0O76PsHduY0jG2j32wJAIluzspkzKS6sBp4MZvfG/ctUaqjDibYuvRZtE3Wv7kY7zH/lwKmD+BnGScFc8YTJUOlcRdqXtIPbX9Je2h5PtLUNmiLzcnjKxJ7dwsSc/QEuVXSY7k/jFkjIsv62EaLEcMtJrbuL+jvLg6/MpK2REuinLrkG9xK2JjgK9xhW6D7pEvQb/Dj3YFk0RbaP7EITsnrQaqZ1pL9aAEDzeG3qcsJSU2cn/wfGgZodwIDAQAB",
             this.gameObject.name);
 
-        // Aptoide account settings block (sign-in / logout) + a buy entry for the
-        // legendary (rainbow) non-consumable, built programmatically under the Canvas.
-        BuildAptoideSettingsBlock();
+        // Build the Settings menu (opened by the existing gear button) containing the
+        // Aptoide account block + a buy entry for the legendary (rainbow) non-consumable.
+        BuildSettingsMenu();
+        WireSettingsButton();
         BindAptoideSettings();
     }
 
@@ -635,50 +638,120 @@ public class Logic : MonoBehaviour,
         RefreshAllPurchases();   // re-query inapp + subs and reconcile (grant/revoke)
     }
 
-    // Builds the "Aptoide" settings block (a titled panel with the account button and a
-    // buy entry for the legendary rainbow non-consumable) under the scene Canvas.
-    private void BuildAptoideSettingsBlock()
+    // Wire the existing "btnSettings" gear button in the scene to open the Settings menu.
+    private void WireSettingsButton()
+    {
+        GameObject settingsGo = GameObject.Find("btnSettings");
+        if (settingsGo == null)
+        {
+            Debug.LogWarning("btnSettings not found in scene; the Settings menu cannot be opened.");
+            return;
+        }
+
+        // The scene's gear is just an Image (no Button component), so add one at runtime.
+        _btnSettings = settingsGo.GetComponent<Button>();
+        if (_btnSettings == null)
+            _btnSettings = settingsGo.AddComponent<Button>();
+        if (_btnSettings.targetGraphic == null)
+            _btnSettings.targetGraphic = settingsGo.GetComponent<Image>();
+
+        _btnSettings.onClick.AddListener(ToggleSettingsMenu);
+    }
+
+    public void ToggleSettingsMenu()
+    {
+        if (_settingsPanel == null)
+            return;
+
+        bool open = !_settingsPanel.activeSelf;
+        _settingsPanel.SetActive(open);
+        if (open)
+            BindAptoideSettings(); // refresh sign-in/logout state each time it opens
+    }
+
+    public void CloseSettingsMenu()
+    {
+        if (_settingsPanel != null)
+            _settingsPanel.SetActive(false);
+    }
+
+    // Builds the Settings menu: a hidden full-screen modal containing the "Aptoide" account
+    // block (sign-in / logout), a buy entry for the legendary rainbow non-consumable, and a
+    // close button. Opened by the existing gear button (see WireSettingsButton).
+    private void BuildSettingsMenu()
     {
         Canvas canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
         {
-            Debug.LogError("No Canvas found; cannot build the Aptoide settings block.");
+            Debug.LogError("No Canvas found; cannot build the Settings menu.");
             return;
         }
 
-        _aptoideBlock = new GameObject("AptoideSettingsBlock",
+        // Full-screen dimmed overlay (hidden until the gear button is pressed).
+        _settingsPanel = new GameObject("SettingsMenu", typeof(RectTransform), typeof(Image));
+        _settingsPanel.transform.SetParent(canvas.transform, false);
+        RectTransform overlayRect = _settingsPanel.GetComponent<RectTransform>();
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+        _settingsPanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.7f);
+
+        // Centered window with vertically stacked content.
+        GameObject window = new GameObject("Window",
             typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-        _aptoideBlock.transform.SetParent(canvas.transform, false);
+        window.transform.SetParent(_settingsPanel.transform, false);
+        RectTransform windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        window.GetComponent<Image>().color = new Color(0.12f, 0.12f, 0.15f, 1f);
 
-        RectTransform rect = _aptoideBlock.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 0f);
-        rect.anchorMax = new Vector2(1f, 0f);
-        rect.pivot = new Vector2(1f, 0f);
-        rect.anchoredPosition = new Vector2(-24f, 24f);
+        VerticalLayoutGroup windowLayout = window.GetComponent<VerticalLayoutGroup>();
+        windowLayout.padding = new RectOffset(28, 28, 24, 24);
+        windowLayout.spacing = 16f;
+        windowLayout.childAlignment = TextAnchor.UpperCenter;
+        windowLayout.childControlWidth = true;
+        windowLayout.childControlHeight = true;
+        windowLayout.childForceExpandWidth = true;
+        windowLayout.childForceExpandHeight = false;
 
-        _aptoideBlock.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+        ContentSizeFitter windowFitter = window.GetComponent<ContentSizeFitter>();
+        windowFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        windowFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        VerticalLayoutGroup layout = _aptoideBlock.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(20, 20, 16, 16);
-        layout.spacing = 12f;
-        layout.childAlignment = TextAnchor.UpperCenter;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
+        CreateLabel(window.transform, "Settings", 36f, FontStyles.Bold);
 
-        ContentSizeFitter fitter = _aptoideBlock.GetComponent<ContentSizeFitter>();
-        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        // ---- Aptoide account block (gated by ACCOUNT_SIGN_IN support in BindAptoideSettings) ----
+        _aptoideBlock = new GameObject("AptoideSettingsBlock",
+            typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+        _aptoideBlock.transform.SetParent(window.transform, false);
+        VerticalLayoutGroup aptoideLayout = _aptoideBlock.GetComponent<VerticalLayoutGroup>();
+        aptoideLayout.spacing = 12f;
+        aptoideLayout.childAlignment = TextAnchor.UpperCenter;
+        aptoideLayout.childControlWidth = true;
+        aptoideLayout.childControlHeight = true;
+        aptoideLayout.childForceExpandWidth = true;
+        aptoideLayout.childForceExpandHeight = false;
+        _aptoideBlock.GetComponent<LayoutElement>().preferredWidth = 520f;
 
-        CreateLabel(_aptoideBlock.transform, "Aptoide", 30f, FontStyles.Bold);
+        CreateLabel(_aptoideBlock.transform, "Aptoide", 28f, FontStyles.Bold);
 
         _btnAptoideAccount = CreateButton(_aptoideBlock.transform, "Sign in to Aptoide Services",
             new Color(0.13f, 0.45f, 0.85f, 1f), out _txtAptoideAccount);
 
-        _btnBuyLegendary = CreateButton(_aptoideBlock.transform, "Buy Legendary Dice",
+        // ---- Buy legendary (rainbow) non-consumable — always available in the menu ----
+        _btnBuyLegendary = CreateButton(window.transform, "Buy Legendary Dice",
             new Color(0.45f, 0.2f, 0.7f, 1f), out _txtBuyLegendary);
         _btnBuyLegendary.onClick.AddListener(OnBuyLegendaryDicePressed);
+
+        // ---- Close ----
+        Button closeButton = CreateButton(window.transform, "Close",
+            new Color(0.3f, 0.3f, 0.35f, 1f), out _);
+        closeButton.onClick.AddListener(CloseSettingsMenu);
+
+        _settingsPanel.SetActive(false);
     }
 
     private Button CreateButton(Transform parent, string text, Color color, out TMP_Text label)
