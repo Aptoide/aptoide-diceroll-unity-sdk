@@ -1,7 +1,10 @@
 import android.util.Log;
 import androidx.annotation.NonNull;
 import com.aptoide.sdk.billing.*;
+import com.aptoide.sdk.billing.AptoideAccountStateListener;
 import com.aptoide.sdk.billing.listeners.AptoideBillingClientStateListener;
+import com.aptoide.sdk.billing.AptoideSignInResponseListener;
+import com.aptoide.sdk.billing.listeners.AcknowledgeResponseListener;
 import com.aptoide.sdk.billing.listeners.ConsumeResponseListener;
 import com.unity3d.player.UnityPlayer;
 import org.json.JSONArray;
@@ -81,10 +84,35 @@ public class AptoideBillingSDKUnityBridge {
                         consumeResultToJson(billingResult, purchaseToken));
             };
 
+    private static AcknowledgeResponseListener acknowledgeResponseListener =
+            (billingResult, purchaseToken) -> {
+                Log.d(TAG, "Acknowledge response: " + purchaseToken + ", result: "
+                        + billingResult.getResponseCode() + " debugMessage: "
+                        + billingResult.getDebugMessage());
+                UnityPlayer.UnitySendMessage(unityClassName, "AcknowledgeResponseCallback",
+                        acknowledgeResultToJson(billingResult, purchaseToken));
+            };
+
+    private static AptoideSignInResponseListener aptoideSignInResponseListener =
+            (billingResult) -> {
+                Log.d(TAG, "Sign in response: " + billingResult.getResponseCode()
+                        + " debugMessage: " + billingResult.getDebugMessage());
+                UnityPlayer.UnitySendMessage(unityClassName, "SignInResponseCallback",
+                        "" + getBillingResultJsonObject(billingResult).toString());
+            };
+
+    private static AptoideAccountStateListener aptoideAccountStateListener =
+            (state) -> {
+                Log.d(TAG, "Account state changed: " + state);
+                UnityPlayer.UnitySendMessage(unityClassName, "AccountStateChangedCallback",
+                        String.valueOf(state));
+            };
+
     public static void initialize(String _unityClassName, String _publicKey) {
         unityClassName = _unityClassName;
         billingClient = AptoideBillingClient.newBuilder(UnityPlayer.currentActivity)
                 .setListener(purchasesUpdatedListener)
+                .setAccountStateListener(aptoideAccountStateListener)
                 .setPublicKey(_publicKey)
                 .build();
     }
@@ -161,6 +189,30 @@ public class AptoideBillingSDKUnityBridge {
                         .setPurchaseToken(purchaseToken)
                         .build();
         billingClient.consumeAsync(consumeParams, consumeResponseListener);
+    }
+
+    public static void acknowledgeAsync(String purchaseToken) {
+        AcknowledgeParams acknowledgeParams =
+                AcknowledgeParams.newBuilder()
+                        .setPurchaseToken(purchaseToken)
+                        .build();
+        billingClient.acknowledgeAsync(acknowledgeParams, acknowledgeResponseListener);
+    }
+
+    public static void signInToAptoideServices() {
+        billingClient.signInToAptoideServices(UnityPlayer.currentActivity,
+                aptoideSignInResponseListener);
+    }
+
+    public static boolean isSignedInToAptoideServices() {
+        boolean signedIn = billingClient.isSignedInToAptoideServices();
+        Log.d(TAG, "Is signed in to Aptoide services: " + signedIn);
+        return signedIn;
+    }
+
+    public static void signOutFromAptoideServices() {
+        billingClient.signOutFromAptoideServices();
+        Log.d(TAG, "Signed out from Aptoide services.");
     }
 
     public static String isFeatureSupported(int feature) {
@@ -404,6 +456,20 @@ public class AptoideBillingSDKUnityBridge {
             jsonObject.put("PurchaseToken", purchaseToken);
         } catch (JSONException exception) {
             Log.e(TAG, "consumeResultToJson: ", exception);
+            return new JSONObject().toString();
+        }
+        return jsonObject.toString();
+    }
+
+    private static String acknowledgeResultToJson(BillingResult billingResult,
+            String purchaseToken) {
+        JSONObject jsonObject = new JSONObject();
+        try {
+            JSONObject billingResultJsonObject = getBillingResultJsonObject(billingResult);
+            jsonObject.put("BillingResult", billingResultJsonObject);
+            jsonObject.put("PurchaseToken", purchaseToken);
+        } catch (JSONException exception) {
+            Log.e(TAG, "acknowledgeResultToJson: ", exception);
             return new JSONObject().toString();
         }
         return jsonObject.toString();

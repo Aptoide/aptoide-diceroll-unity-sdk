@@ -4,7 +4,7 @@ apply from: '../shared/keepUnitySymbols.gradle'
 
         dependencies {
             implementation fileTree(dir: 'libs', include: ['*.jar'])
-            implementation("com.aptoide:android-aptoide-billing:1.2.0")
+            implementation("com.aptoide:android-aptoide-billing:1.5.0")
             implementation("org.json:json:20210307")
             **DEPS**}
 
